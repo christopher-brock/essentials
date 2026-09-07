@@ -103,12 +103,32 @@
     display: flex; align-items: center; justify-content: space-between;
     padding: 13px 0; cursor: pointer; gap: 10px;
   }
-  .item-name-wrap { min-width: 0; display: flex; align-items: center; gap: 9px; }
+  .item-name-wrap { min-width: 0; display: flex; align-items: center; gap: 11px; flex: 1; }
   .item-name {
     font-size: 15px; font-weight: 500;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
   }
   .item-amount { font-size: 15px; font-weight: 600; flex-shrink: 0; }
+
+  .tick {
+    width: 23px; height: 23px; border-radius: 50%;
+    border: 2px solid var(--c, var(--pine)); background: transparent;
+    flex-shrink: 0; padding: 0; cursor: pointer;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 12px; line-height: 1; color: transparent;
+  }
+  .tick.on { background: var(--c, var(--pine)); color: #fff; }
+  .item.paid .item-name, .item.paid .item-amount {
+    color: var(--muted); text-decoration: line-through;
+  }
+
+  .paid-summary { font-size: 12.5px; color: var(--muted); margin: 12px 0 0; }
+  .paid-head {
+    display: flex; align-items: baseline; justify-content: space-between;
+    margin: 16px 0 0;
+  }
+  .paid-head h2 { margin: 0; }
+  .paid-head .paid-total { font-size: 13px; font-weight: 600; color: var(--muted); }
   .item-detail { display: none; padding: 0 0 13px 19px; font-size: 13px; color: var(--muted); }
   .item-detail.open { display: block; }
   .item-meta { margin-bottom: 4px; }
@@ -212,13 +232,22 @@
         <div class="donut-label" id="totalLabel">total due</div>
       </div>
     </div>
+    <p class="paid-summary" id="paidSummary"></p>
     <div class="legend" id="legend"></div>
   </div>
 
   <div class="card">
-    <h2 id="listHeading">Costs this month</h2>
+    <h2 id="listHeading">Still to pay</h2>
     <ul class="items" id="itemsList"></ul>
     <p class="empty" id="emptyMsg">Nothing added for this month yet.</p>
+
+    <div id="paidSection" style="display:none;">
+      <div class="paid-head">
+        <h2>Paid</h2>
+        <span class="paid-total" id="paidTotal"></span>
+      </div>
+      <ul class="items" id="paidList"></ul>
+    </div>
   </div>
 
   <div class="footer-note">
@@ -277,11 +306,13 @@ const CATS = {
 const CAT_ORDER = ['essential','wanted','optional'];
 
 let recurring = [], oneOff = [];
+let paid = {};   // key: "itemId|YYYY-MM" -> true
 let viewDate = new Date(); viewDate.setDate(1);
 let drillCat = null;
 let expandedId = null;
 let editingId = null, editingKind = null;
 let formCat = 'essential', formFreq = 'recurring';
+let emptyBaseMsg = 'Nothing added for this month yet.';
 
 const $ = id => document.getElementById(id);
 const money = n => '£' + n.toLocaleString('en-GB', {minimumFractionDigits:2, maximumFractionDigits:2});
@@ -297,7 +328,7 @@ function warn(msg) {
 }
 
 function save() {
-  try { localStorage.setItem(KEY, JSON.stringify({recurring, oneOff})); warn(null); }
+  try { localStorage.setItem(KEY, JSON.stringify({recurring, oneOff, paid})); warn(null); }
   catch (e) { warn("Couldn't save. If you're in Private Browsing, switch to a normal tab."); }
 }
 
@@ -308,10 +339,21 @@ function load() {
       const d = JSON.parse(raw);
       recurring = Array.isArray(d.recurring) ? d.recurring : [];
       oneOff = Array.isArray(d.oneOff) ? d.oneOff : [];
+      paid = (d.paid && typeof d.paid === 'object') ? d.paid : {};
       [...recurring, ...oneOff].forEach(i => { if (!CATS[i.category]) i.category = 'essential'; });
     }
     warn(null);
   } catch (e) { warn("Couldn't load saved data on this device."); }
+}
+
+const paidKey = item => item.id + '|' + mkOf(viewDate);
+const isPaid = item => paid[paidKey(item)] === true;
+
+function togglePaid(item) {
+  const k = paidKey(item);
+  if (paid[k]) delete paid[k]; else paid[k] = true;
+  expandedId = null;
+  save(); render();
 }
 
 function populateMonths() {
@@ -397,34 +439,38 @@ function drawDonut(segments) {
   });
 }
 
-function renderItemList(list) {
-  const ul = $('itemsList');
+function renderItemList(list, ul) {
   ul.innerHTML = '';
-  $('emptyMsg').style.display = list.length ? 'none' : 'block';
 
   list.forEach(item => {
     const cat = catOf(item);
     const info = dueInfo(item);
+    const done = isPaid(item);
     const open = expandedId === item.id;
     const li = document.createElement('li');
-    li.className = 'item';
+    li.className = 'item' + (done ? ' paid' : '');
     li.innerHTML = `
       <div class="item-row">
         <div class="item-name-wrap">
-          <span class="dot" style="background:${CATS[cat].color}"></span>
+          <button class="tick ${done?'on':''}" style="--c:${CATS[cat].color}"
+                  aria-label="${done?'Mark as unpaid':'Mark as paid'}">✓</button>
           <span class="item-name"></span>
         </div>
         <div class="item-amount">${money(item.amount)}</div>
       </div>
       <div class="item-detail ${open?'open':''}">
         <div class="item-meta">${CATS[cat].label}</div>
-        <div class="item-meta ${info.soon?'soon':''}">${info.text}</div>
+        <div class="item-meta ${info.soon && !done ? 'soon' : ''}">${info.text}</div>
         <div class="detail-actions">
           <button class="detail-link edit">Edit</button>
           <button class="detail-link remove">Remove</button>
         </div>
       </div>`;
     li.querySelector('.item-name').textContent = item.name;
+    li.querySelector('.tick').addEventListener('click', e => {
+      e.stopPropagation();
+      togglePaid(item);
+    });
     li.querySelector('.item-row').addEventListener('click', () => {
       expandedId = open ? null : item.id;
       render();
@@ -434,11 +480,31 @@ function renderItemList(list) {
       e.stopPropagation();
       if (item.kind === 'recurring') recurring = recurring.filter(x => x.id !== item.id);
       else oneOff = oneOff.filter(x => x.id !== item.id);
+      delete paid[item.id + '|' + mkOf(viewDate)];
       expandedId = null;
       save(); render();
     });
     ul.appendChild(li);
   });
+}
+
+function renderSplitLists(list) {
+  const unpaid = list.filter(i => !isPaid(i));
+  const done = list.filter(i => isPaid(i));
+
+  renderItemList(unpaid, $('itemsList'));
+  $('emptyMsg').style.display = unpaid.length ? 'none' : 'block';
+  $('emptyMsg').textContent = list.length
+    ? 'All paid for this month.'
+    : emptyBaseMsg;
+
+  if (done.length) {
+    $('paidSection').style.display = 'block';
+    $('paidTotal').textContent = money(done.reduce((s,i) => s + i.amount, 0));
+    renderItemList(done, $('paidList'));
+  } else {
+    $('paidSection').style.display = 'none';
+  }
 }
 
 function sortItems(list) {
@@ -451,16 +517,21 @@ function render() {
 
   if (!drillCat) {
     $('titleSlot').innerHTML = '<h1>Essentials</h1>';
-    $('listHeading').textContent = 'Costs this month';
-    $('emptyMsg').textContent = 'Nothing added for this month yet.';
+    $('listHeading').textContent = 'Still to pay';
+    emptyBaseMsg = 'Nothing added for this month yet.';
 
+    const unpaidItems = items.filter(i => !isPaid(i));
     const totals = {};
     CAT_ORDER.forEach(c => totals[c] = 0);
-    items.forEach(i => totals[catOf(i)] += i.amount);
-    const grand = CAT_ORDER.reduce((s,c) => s + totals[c], 0);
+    unpaidItems.forEach(i => totals[catOf(i)] += i.amount);
+    const remaining = CAT_ORDER.reduce((s,c) => s + totals[c], 0);
+    const grand = items.reduce((s,i) => s + i.amount, 0);
 
-    $('totalFigure').textContent = money(grand);
-    $('totalLabel').textContent = 'total due';
+    $('totalFigure').textContent = money(remaining);
+    $('totalLabel').textContent = 'left to pay';
+    $('paidSummary').textContent = grand > 0
+      ? `${money(grand - remaining)} paid of ${money(grand)}`
+      : '';
 
     drawDonut(CAT_ORDER.map(c => ({
       value: totals[c],
@@ -487,27 +558,32 @@ function render() {
       legend.appendChild(btn);
     });
 
-    renderItemList(sortItems(items));
+    renderSplitLists(sortItems(items));
     return;
   }
 
   // Drilled into one category
   const cat = drillCat;
   const catItems = sortItems(items.filter(i => catOf(i) === cat));
+  const unpaidCat = catItems.filter(i => !isPaid(i));
   const catTotal = catItems.reduce((s,i) => s + i.amount, 0);
+  const catRemaining = unpaidCat.reduce((s,i) => s + i.amount, 0);
 
   $('titleSlot').innerHTML = `<button class="back-btn" id="backBtn"><span class="chev">‹</span>${CATS[cat].label}</button>`;
   $('backBtn').addEventListener('click', () => { drillCat = null; expandedId = null; render(); });
 
-  $('listHeading').textContent = `${CATS[cat].label} costs`;
-  $('emptyMsg').textContent = `No ${CATS[cat].label.toLowerCase()} costs this month.`;
+  $('listHeading').textContent = `${CATS[cat].label} — still to pay`;
+  emptyBaseMsg = `No ${CATS[cat].label.toLowerCase()} costs this month.`;
 
-  $('totalFigure').textContent = money(catTotal);
-  $('totalLabel').textContent = CATS[cat].label.toLowerCase() + ' total';
+  $('totalFigure').textContent = money(catRemaining);
+  $('totalLabel').textContent = 'left to pay';
+  $('paidSummary').textContent = catTotal > 0
+    ? `${money(catTotal - catRemaining)} paid of ${money(catTotal)}`
+    : '';
 
   const base = CATS[cat].color;
-  const n = Math.max(catItems.length, 1);
-  drawDonut(catItems.map((it, idx) => ({
+  const n = Math.max(unpaidCat.length, 1);
+  drawDonut(unpaidCat.map((it, idx) => ({
     value: it.amount,
     color: shade(base, (idx % n) * (0.55 / n)),
     onClick: () => { expandedId = expandedId === it.id ? null : it.id; render(); }
@@ -515,10 +591,10 @@ function render() {
 
   const legend = $('legend');
   legend.innerHTML = '';
-  catItems.forEach((it, idx) => {
+  unpaidCat.forEach((it, idx) => {
     const btn = document.createElement('button');
     btn.className = 'legend-btn';
-    const pct = catTotal > 0 ? Math.round((it.amount / catTotal) * 100) : 0;
+    const pct = catRemaining > 0 ? Math.round((it.amount / catRemaining) * 100) : 0;
     btn.innerHTML = `
       <span class="legend-left">
         <span class="dot" style="background:${shade(base, (idx % n) * (0.55 / n))}"></span>
@@ -533,7 +609,7 @@ function render() {
     legend.appendChild(btn);
   });
 
-  renderItemList(catItems);
+  renderSplitLists(catItems);
 }
 
 // ---- Add / edit sheet ----
@@ -642,7 +718,7 @@ $('saveBtn').addEventListener('click', () => {
 });
 
 $('exportLink').addEventListener('click', () => {
-  const blob = new Blob([JSON.stringify({recurring, oneOff}, null, 2)], {type:'application/json'});
+  const blob = new Blob([JSON.stringify({recurring, oneOff, paid}, null, 2)], {type:'application/json'});
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
   a.download = 'essentials-backup.json';
