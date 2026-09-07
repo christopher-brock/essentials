@@ -1,0 +1,520 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover, user-scalable=no">
+<title>Essentials</title>
+
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#F7F5F0">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="Essentials">
+<link rel="apple-touch-icon" href="icon-180.png">
+
+<style>
+  :root {
+    --paper: #F7F5F0;
+    --card: #FFFFFF;
+    --ink: #202B24;
+    --muted: #6E7A70;
+    --line: #E4E0D6;
+    --pine: #1E4638;
+    --pine-soft: #E7EFEA;
+    --amber: #C08A2E;
+  }
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+  body {
+    margin: 0;
+    background: var(--paper);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-variant-numeric: tabular-nums;
+    -webkit-font-smoothing: antialiased;
+    padding-top: env(safe-area-inset-top);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .wrap { max-width: 480px; margin: 0 auto; padding: 18px 16px 110px; }
+
+  .top-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px; }
+  h1 { font-size: 18px; margin: 0; font-weight: 600; }
+
+  .month-select-wrap { position: relative; }
+  select#monthSelect {
+    appearance: none; -webkit-appearance: none;
+    font-family: inherit; font-size: 14px; font-weight: 600;
+    color: var(--ink); background: var(--card);
+    border: 1px solid var(--line); border-radius: 8px;
+    padding: 8px 28px 8px 12px; cursor: pointer;
+  }
+  .month-select-wrap::after {
+    content: '▾'; position: absolute; right: 10px; top: 50%;
+    transform: translateY(-50%); pointer-events: none;
+    color: var(--muted); font-size: 12px;
+  }
+
+  .chart-card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 14px; padding: 22px 16px 18px;
+    margin-bottom: 16px; text-align: center;
+  }
+  .donut-wrap { position: relative; width: 168px; height: 168px; margin: 0 auto; }
+  .donut-center {
+    position: absolute; inset: 0;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+  }
+  .donut-figure { font-size: 26px; font-weight: 650; letter-spacing: -0.02em; }
+  .donut-label { font-size: 11.5px; color: var(--muted); margin-top: 2px; }
+
+  .legend { display: flex; justify-content: center; gap: 20px; margin-top: 16px; }
+  .legend-item { display: flex; align-items: center; gap: 7px; font-size: 13px; }
+  .dot { width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; }
+  .dot.rec { background: var(--pine); }
+  .dot.oo { background: var(--amber); }
+  .legend-amt { color: var(--muted); }
+
+  .card {
+    background: var(--card); border: 1px solid var(--line);
+    border-radius: 12px; padding: 6px 16px 10px; margin-bottom: 16px;
+  }
+  .card h2 { font-size: 13px; font-weight: 600; color: var(--muted); margin: 12px 0 4px; }
+  .items { list-style: none; margin: 0; padding: 0; }
+  .item { border-bottom: 1px solid var(--line); }
+  .item:last-child { border-bottom: none; }
+  .item-row {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 13px 0; cursor: pointer; gap: 10px;
+  }
+  .item-name-wrap { min-width: 0; display: flex; align-items: center; gap: 8px; }
+  .type-chip {
+    font-size: 10.5px; font-weight: 700; padding: 2px 6px;
+    border-radius: 5px; flex-shrink: 0;
+  }
+  .type-chip.rec { background: var(--pine-soft); color: var(--pine); }
+  .type-chip.oo { background: #FBF0DD; color: var(--amber); }
+  .item-name {
+    font-size: 15px; font-weight: 500;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .item-amount { font-size: 15px; font-weight: 600; flex-shrink: 0; }
+  .item-detail { display: none; padding: 0 0 13px 2px; font-size: 13px; color: var(--muted); }
+  .item-detail.open { display: block; }
+  .item-detail .due-line { margin-bottom: 10px; }
+  .item-detail .due-line.soon { color: var(--amber); font-weight: 600; }
+  .detail-actions { display: flex; gap: 16px; }
+  .detail-link {
+    font-size: 13px; background: none; border: none; padding: 0;
+    cursor: pointer; text-decoration: underline;
+  }
+  .detail-link.edit { color: var(--pine); }
+  .detail-link.remove { color: #A23B3B; }
+  .empty { text-align: center; color: var(--muted); font-size: 14px; padding: 20px 0; }
+
+  .fab {
+    position: fixed;
+    bottom: calc(24px + env(safe-area-inset-bottom));
+    right: 50%; transform: translateX(calc(240px - 56px));
+    width: 56px; height: 56px; border-radius: 50%;
+    background: var(--pine); color: white; border: none;
+    font-size: 28px; line-height: 1;
+    box-shadow: 0 6px 16px rgba(30,70,56,0.35); cursor: pointer;
+  }
+  @media (max-width: 520px) { .fab { right: 20px; transform: none; } }
+
+  .overlay {
+    display: none; position: fixed; inset: 0;
+    background: rgba(20,26,22,0.45);
+    align-items: flex-end; justify-content: center; z-index: 10;
+  }
+  .overlay.open { display: flex; }
+  .sheet {
+    background: var(--paper); width: 100%; max-width: 480px;
+    border-radius: 18px 18px 0 0;
+    padding: 18px 18px calc(28px + env(safe-area-inset-bottom));
+    max-height: 88vh; overflow-y: auto;
+  }
+  .sheet-head { display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px; }
+  .sheet-head h3 { margin: 0; font-size: 17px; }
+  .close-x { background: none; border: none; font-size: 20px; color: var(--muted); cursor: pointer; }
+
+  .type-toggle { display: flex; gap: 8px; margin-bottom: 6px; }
+  .type-btn {
+    flex: 1; padding: 12px; text-align: center; border-radius: 10px;
+    border: 1.5px solid var(--line); background: var(--card);
+    font-size: 14px; font-weight: 600; color: var(--muted); cursor: pointer;
+  }
+  .type-btn.active.rec { border-color: var(--pine); background: var(--pine-soft); color: var(--pine); }
+  .type-btn.active.oo { border-color: var(--amber); background: #FBF0DD; color: var(--amber); }
+
+  label.field-label { display: block; font-size: 12.5px; color: var(--muted); margin: 12px 0 5px; }
+  input {
+    font-family: inherit; font-size: 16px; padding: 12px;
+    border: 1px solid var(--line); border-radius: 9px;
+    background: var(--card); color: var(--ink); width: 100%;
+  }
+  input:focus { outline: 2px solid var(--pine); outline-offset: -1px; }
+
+  .sheet-actions { display: flex; gap: 10px; margin-top: 20px; }
+  .btn-cancel {
+    flex: 1; padding: 13px; border-radius: 9px; border: 1px solid var(--line);
+    background: var(--card); color: var(--ink); font-size: 15px; cursor: pointer;
+  }
+  .btn-save {
+    flex: 2; padding: 13px; border-radius: 9px; border: none;
+    background: var(--pine); color: white; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+
+  .footer-note { text-align: center; margin-top: 4px; }
+  .footer-link {
+    background: none; border: none; font-size: 12.5px;
+    color: var(--muted); text-decoration: underline; cursor: pointer; padding: 6px;
+  }
+  .warn-banner {
+    display: none; background: #FBEAEA; color: #8C2F2F;
+    border-radius: 9px; padding: 10px 12px; font-size: 13px; margin-bottom: 14px;
+  }
+  .warn-banner.show { display: block; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-row">
+    <h1>Essentials</h1>
+    <div class="month-select-wrap"><select id="monthSelect"></select></div>
+  </div>
+
+  <div class="warn-banner" id="warnBanner"></div>
+
+  <div class="chart-card">
+    <div class="donut-wrap">
+      <svg viewBox="0 0 168 168" width="168" height="168">
+        <circle cx="84" cy="84" r="70" fill="none" stroke="#E4E0D6" stroke-width="18"/>
+        <g id="donutArcs" transform="rotate(-90 84 84)"></g>
+      </svg>
+      <div class="donut-center">
+        <div class="donut-figure" id="totalFigure">£0.00</div>
+        <div class="donut-label">total due</div>
+      </div>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><span class="dot rec"></span>Recurring <span class="legend-amt" id="legendRec">£0.00</span></div>
+      <div class="legend-item"><span class="dot oo"></span>One-off <span class="legend-amt" id="legendOO">£0.00</span></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2>Costs this month</h2>
+    <ul class="items" id="itemsList"></ul>
+    <p class="empty" id="emptyMsg">Nothing added for this month yet.</p>
+  </div>
+
+  <div class="footer-note">
+    <button class="footer-link" id="exportLink">Back up my data</button>
+  </div>
+</div>
+
+<button class="fab" id="fabBtn" aria-label="Add cost">+</button>
+
+<div class="overlay" id="overlay">
+  <div class="sheet">
+    <div class="sheet-head">
+      <h3 id="sheetTitle">Add a cost</h3>
+      <button class="close-x" id="closeSheet">✕</button>
+    </div>
+
+    <div class="type-toggle">
+      <button class="type-btn rec active" id="typeRecBtn">Recurring</button>
+      <button class="type-btn oo" id="typeOOBtn">One-off</button>
+    </div>
+    <p style="font-size:12px;color:var(--muted);margin:0 0 4px;" id="typeHint">Counts towards every month.</p>
+
+    <label class="field-label">Name</label>
+    <input id="inputName" type="text" placeholder="e.g. Rent, Car repair" autocomplete="off">
+
+    <label class="field-label">Amount</label>
+    <input id="inputAmount" type="number" inputmode="decimal" step="0.01" min="0" placeholder="£ amount">
+
+    <label class="field-label" id="dateFieldLabel">Due day of month (optional)</label>
+    <input id="inputDay" type="number" inputmode="numeric" min="1" max="31" placeholder="e.g. 15">
+    <input id="inputDate" type="date" style="display:none;">
+
+    <div class="sheet-actions">
+      <button class="btn-cancel" id="cancelBtn">Cancel</button>
+      <button class="btn-save" id="saveBtn">Save</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const KEY = 'essentials-v1';
+let recurring = [], oneOff = [];
+let viewDate = new Date(); viewDate.setDate(1);
+let currentType = 'recurring';
+let expandedId = null;
+let editingId = null, editingKind = null;
+
+const $ = id => document.getElementById(id);
+const money = n => '£' + n.toLocaleString('en-GB', {minimumFractionDigits:2, maximumFractionDigits:2});
+const mkOf = d => d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0');
+const isThisMonth = () => mkOf(viewDate) === mkOf(new Date());
+const ord = n => { const s=['th','st','nd','rd'], v=n%100; return s[(v-20)%10]||s[v]||s[0]; };
+
+function warn(msg) {
+  const b = $('warnBanner');
+  if (msg) { b.textContent = msg; b.classList.add('show'); }
+  else { b.classList.remove('show'); }
+}
+
+function save() {
+  try {
+    localStorage.setItem(KEY, JSON.stringify({recurring, oneOff}));
+    warn(null);
+  } catch (e) {
+    warn("Couldn't save. If you're in Private Browsing, switch to a normal tab.");
+  }
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(KEY);
+    if (raw) {
+      const d = JSON.parse(raw);
+      recurring = Array.isArray(d.recurring) ? d.recurring : [];
+      oneOff = Array.isArray(d.oneOff) ? d.oneOff : [];
+    }
+    warn(null);
+  } catch (e) {
+    warn("Couldn't load saved data on this device.");
+  }
+}
+
+function populateMonths() {
+  const sel = $('monthSelect');
+  sel.innerHTML = '';
+  const base = new Date(); base.setDate(1);
+  for (let o = -6; o <= 18; o++) {
+    const d = new Date(base.getFullYear(), base.getMonth()+o, 1);
+    const opt = document.createElement('option');
+    opt.value = mkOf(d);
+    opt.textContent = d.toLocaleDateString('en-GB', {month:'long', year:'numeric'});
+    if (mkOf(d) === mkOf(viewDate)) opt.selected = true;
+    sel.appendChild(opt);
+  }
+}
+
+$('monthSelect').addEventListener('change', e => {
+  const [y,m] = e.target.value.split('-').map(Number);
+  viewDate = new Date(y, m-1, 1);
+  expandedId = null;
+  render();
+});
+
+function dueRecurring(day) {
+  if (!day) return null;
+  const label = `Due on the ${day}${ord(day)} of the month`;
+  if (!isThisMonth()) return {text: label, soon: false};
+  const now = new Date();
+  const target = new Date(now.getFullYear(), now.getMonth(), day);
+  const d = Math.round((target - new Date(now.getFullYear(), now.getMonth(), now.getDate()))/86400000);
+  if (d < 0) return {text: `${label} (passed)`, soon: false};
+  if (d === 0) return {text: `${label} — today`, soon: true};
+  if (d <= 14) return {text: `${label} — ${d} day${d===1?'':'s'} away`, soon: true};
+  return {text: label, soon: false};
+}
+
+function dueDate(dateStr) {
+  const due = new Date(dateStr + 'T00:00:00');
+  const label = 'Due ' + due.toLocaleDateString('en-GB', {day:'numeric', month:'long', year:'numeric'});
+  if (!isThisMonth()) return {text: label, soon: false};
+  const today = new Date(); today.setHours(0,0,0,0);
+  const d = Math.round((due - today)/86400000);
+  if (d < 0) return {text: `${label} (overdue)`, soon: true};
+  if (d === 0) return {text: `${label} — today`, soon: true};
+  if (d <= 14) return {text: `${label} — ${d} day${d===1?'':'s'} away`, soon: true};
+  return {text: label, soon: false};
+}
+
+function drawDonut(rec, oo) {
+  const g = $('donutArcs');
+  g.innerHTML = '';
+  const total = rec + oo;
+  if (total <= 0) return;
+  const r = 70, C = 2*Math.PI*r;
+  const recLen = C * (rec/total), ooLen = C * (oo/total);
+  const mk = (len, offset, color) => {
+    const c = document.createElementNS('http://www.w3.org/2000/svg','circle');
+    c.setAttribute('cx',84); c.setAttribute('cy',84); c.setAttribute('r',r);
+    c.setAttribute('fill','none'); c.setAttribute('stroke',color);
+    c.setAttribute('stroke-width','18');
+    c.setAttribute('stroke-dasharray', `${len} ${C-len}`);
+    c.setAttribute('stroke-dashoffset', offset);
+    return c;
+  };
+  if (rec > 0) g.appendChild(mk(recLen, 0, '#1E4638'));
+  if (oo > 0) g.appendChild(mk(ooLen, -recLen, '#C08A2E'));
+}
+
+function render() {
+  const mk = mkOf(viewDate);
+  const monthOO = oneOff.filter(i => i.monthKey === mk);
+  const recTotal = recurring.reduce((s,i) => s+i.amount, 0);
+  const ooTotal = monthOO.reduce((s,i) => s+i.amount, 0);
+
+  $('totalFigure').textContent = money(recTotal + ooTotal);
+  $('legendRec').textContent = money(recTotal);
+  $('legendOO').textContent = money(ooTotal);
+  drawDonut(recTotal, ooTotal);
+
+  const all = [
+    ...recurring.map(i => ({...i, kind:'recurring'})),
+    ...monthOO.map(i => ({...i, kind:'oneoff'}))
+  ].sort((a,b) => {
+    const k = x => x.kind === 'recurring' ? (x.day ?? 99) : (x.date ? new Date(x.date).getDate() : 99);
+    return k(a) - k(b);
+  });
+
+  const list = $('itemsList');
+  list.innerHTML = '';
+  $('emptyMsg').style.display = all.length ? 'none' : 'block';
+
+  all.forEach(item => {
+    const isRec = item.kind === 'recurring';
+    const badge = isRec ? dueRecurring(item.day) : (item.date ? dueDate(item.date) : null);
+    const open = expandedId === item.id;
+    const li = document.createElement('li');
+    li.className = 'item';
+    li.innerHTML = `
+      <div class="item-row">
+        <div class="item-name-wrap">
+          <span class="type-chip ${isRec?'rec':'oo'}">${isRec?'REC':'ONE'}</span>
+          <span class="item-name"></span>
+        </div>
+        <div class="item-amount">${money(item.amount)}</div>
+      </div>
+      <div class="item-detail ${open?'open':''}">
+        <div class="due-line ${badge&&badge.soon?'soon':''}">${badge?badge.text:(isRec?'No due day set':'No date set')}</div>
+        <div class="detail-actions">
+          <button class="detail-link edit">Edit</button>
+          <button class="detail-link remove">Remove</button>
+        </div>
+      </div>`;
+    li.querySelector('.item-name').textContent = item.name;
+    li.querySelector('.item-row').addEventListener('click', () => {
+      expandedId = open ? null : item.id;
+      render();
+    });
+    li.querySelector('.edit').addEventListener('click', e => {
+      e.stopPropagation(); openSheet(item);
+    });
+    li.querySelector('.remove').addEventListener('click', e => {
+      e.stopPropagation();
+      if (item.kind === 'recurring') recurring = recurring.filter(x => x.id !== item.id);
+      else oneOff = oneOff.filter(x => x.id !== item.id);
+      expandedId = null;
+      save(); render();
+    });
+    list.appendChild(li);
+  });
+}
+
+function setType(t) {
+  currentType = t;
+  $('typeRecBtn').classList.toggle('active', t === 'recurring');
+  $('typeOOBtn').classList.toggle('active', t === 'oneoff');
+  if (t === 'recurring') {
+    $('typeHint').textContent = 'Counts towards every month.';
+    $('dateFieldLabel').textContent = 'Due day of month (optional)';
+    $('inputDay').style.display = 'block';
+    $('inputDate').style.display = 'none';
+  } else {
+    $('typeHint').textContent = 'Counts towards one month only.';
+    $('dateFieldLabel').textContent = 'Date (optional)';
+    $('inputDay').style.display = 'none';
+    $('inputDate').style.display = 'block';
+  }
+}
+
+function openSheet(item) {
+  if (item) {
+    editingId = item.id; editingKind = item.kind;
+    $('sheetTitle').textContent = 'Edit cost';
+    $('inputName').value = item.name;
+    $('inputAmount').value = item.amount;
+    setType(item.kind === 'recurring' ? 'recurring' : 'oneoff');
+    $('inputDay').value = item.day ?? '';
+    $('inputDate').value = item.date ?? '';
+    $('typeRecBtn').disabled = true;
+    $('typeOOBtn').disabled = true;
+  } else {
+    editingId = null; editingKind = null;
+    $('sheetTitle').textContent = 'Add a cost';
+    $('inputName').value = ''; $('inputAmount').value = '';
+    $('inputDay').value = ''; $('inputDate').value = '';
+    setType('recurring');
+    $('typeRecBtn').disabled = false;
+    $('typeOOBtn').disabled = false;
+  }
+  $('overlay').classList.add('open');
+}
+function closeSheet() { $('overlay').classList.remove('open'); }
+
+$('fabBtn').addEventListener('click', () => openSheet(null));
+$('closeSheet').addEventListener('click', closeSheet);
+$('cancelBtn').addEventListener('click', closeSheet);
+$('overlay').addEventListener('click', e => { if (e.target === $('overlay')) closeSheet(); });
+$('typeRecBtn').addEventListener('click', () => { if (!editingId) setType('recurring'); });
+$('typeOOBtn').addEventListener('click', () => { if (!editingId) setType('oneoff'); });
+
+$('saveBtn').addEventListener('click', () => {
+  const name = $('inputName').value.trim();
+  const amount = parseFloat($('inputAmount').value);
+  if (!name || isNaN(amount) || amount <= 0) return;
+
+  if (editingId) {
+    const arr = editingKind === 'recurring' ? recurring : oneOff;
+    const it = arr.find(x => x.id === editingId);
+    if (it) {
+      it.name = name; it.amount = amount;
+      if (editingKind === 'recurring') {
+        const v = $('inputDay').value;
+        it.day = v ? Math.min(31, Math.max(1, parseInt(v,10))) : null;
+      } else {
+        const d = $('inputDate').value || null;
+        it.date = d;
+        it.monthKey = d ? d.slice(0,7) : it.monthKey;
+      }
+    }
+  } else if (currentType === 'recurring') {
+    const v = $('inputDay').value;
+    recurring.push({id:'r'+Date.now(), name, amount, day: v ? Math.min(31, Math.max(1, parseInt(v,10))) : null});
+  } else {
+    const d = $('inputDate').value || null;
+    oneOff.push({id:'o'+Date.now(), name, amount, date: d, monthKey: d ? d.slice(0,7) : mkOf(viewDate)});
+  }
+  expandedId = null;
+  save(); render(); closeSheet();
+});
+
+$('exportLink').addEventListener('click', () => {
+  const blob = new Blob([JSON.stringify({recurring, oneOff}, null, 2)], {type:'application/json'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'essentials-backup.json';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+});
+
+[$('inputName'), $('inputAmount'), $('inputDay')].forEach(el => {
+  el.addEventListener('keydown', e => { if (e.key === 'Enter') $('saveBtn').click(); });
+});
+
+load();
+populateMonths();
+render();
+
+if ('serviceWorker' in navigator) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+</script>
+</body>
+</html>
